@@ -76,6 +76,15 @@ def add_item(item: Item) -> dict[str, Item]:
     items[item.id] = item
     return {"added": item}
 
+# EXAMPLE
+
+# @app.put("/update/{item_id}", response_model=Item)
+# def update(
+#     item_id: int,
+#     item_data: CreateItem  # TO IMPLEMENT WITH PYDANTIC,
+# ) -> Item:
+
+
 #UPDATE A NEW ITEM 
 @app.put("/update/{item_id}")
 def update(
