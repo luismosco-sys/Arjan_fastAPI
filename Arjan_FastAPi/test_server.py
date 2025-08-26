@@ -2,7 +2,7 @@ import requests
 
 #get all items
     #full dict and selection
-#print(requests.get("http://127.0.0.1:8000/items/").json())
+print(requests.get("http://127.0.0.1:8000/items/").json())
     #full dict 
 #print(requests.get("http://127.0.0.1:8000/").json())
 
