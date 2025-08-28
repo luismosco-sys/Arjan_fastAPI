@@ -1,5 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
+from typing import Annotated, Optional
 from api_enums import Item
+from fastapi.encoders import jsonable_encoder
 from schemas import Category
 
 app = FastAPI()
@@ -53,6 +55,12 @@ def query_item_by_parameters(
         "selection": selection,
     }
 
+#GET ITEM BT PARAMS (pydantic model)
+# @app.get("/items/")
+# async def param_items(filter_query: Annotated[list[Item], Query()]):
+#     query_items ={'result_set':filter_query}
+#     return query_items
+
 #POST A NEW ITEM 
 @app.post("/")
 def add_item(item: Item) -> dict[str, Item]:
@@ -63,16 +71,17 @@ def add_item(item: Item) -> dict[str, Item]:
     items[item.id] = item
     return {"added": item}
 
-# EXAMPLE
+# TO IMPLEMENT WITH PYDANTIC
+@app.put("/pydantic_update/{item_id}", response_model=Item)
+async def update_item(
+    item_id: int,
+    item: Item):
+    update_item_encoded = jsonable_encoder(item)
+    items[item_id]=update_item_encoded
+    return update_item_encoded
 
-# @app.put("/update/{item_id}", response_model=Item)
-# def update(
-#     item_id: int,
-#     item_data: CreateItem  # TO IMPLEMENT WITH PYDANTIC,
-# ) -> Item:
 
-
-#UPDATE A NEW ITEM 
+#UPDATE A NEW ITEM //Suspended for pydantic update
 @app.put("/update/{item_id}")
 def update(
     item_id: int,
