@@ -1,13 +1,12 @@
-from fastapi import FastAPI, HTTPException, Query
-from typing import Annotated, Optional
-from api_enums import Item
+from fastapi import FastAPI, HTTPException, Depends 
+from api_enums import Item, query_Item
 from fastapi.encoders import jsonable_encoder
 from schemas import Category
 
 app = FastAPI()
 
 items = {
-    0: Item(name="Hammer", price=9.99, count=20, id=0, category=Category.TOOLS),
+    0: Item(name="Hammer", price=9, count=20, id=0, category=Category.TOOLS),
     1: Item(name="Pliers", price=5.99, count=20, id=1, category=Category.TOOLS),
     2: Item(name="Nails", price=1.99, count=100, id=2, category=Category.CONSUMABLES),
 }
@@ -31,7 +30,7 @@ Selection = dict[
     str, str | int | float | Category | None
 ]  # dictionary containing the user's query arguments
 
-@app.get("/items/")
+@app.get("/items/", response_model=Item)
 def query_item_by_parameters(
     name: str | None = None,
     price: float | None = None,
@@ -56,10 +55,15 @@ def query_item_by_parameters(
     }
 
 #GET ITEM BT PARAMS (pydantic model)
-# @app.get("/items/")
-# async def param_items(filter_query: Annotated[list[Item], Query()]):
-#     query_items ={'result_set':filter_query}
-#     return query_items
+@app.get("/query_items/", response_model=Item)
+async def read_items(params: query_Item = Depends()):
+    return {
+        "id": params.id,
+        "name": params.name,
+        "price": params.price,
+        "count": params.count,
+        "category": params.category,
+    }
 
 #POST A NEW ITEM 
 @app.post("/")
