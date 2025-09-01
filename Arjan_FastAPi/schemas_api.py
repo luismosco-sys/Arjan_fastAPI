@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from schemas import Category
+from enums_api import Category
 from typing import Optional
 from fastapi import Query
 

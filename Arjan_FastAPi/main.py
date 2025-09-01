@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends 
-from api_enums import Item, query_Item
+from schemas_api import Item, query_Item
 from fastapi.encoders import jsonable_encoder
-from schemas import Category
+from enums_api import Category
 
 app = FastAPI()
 
