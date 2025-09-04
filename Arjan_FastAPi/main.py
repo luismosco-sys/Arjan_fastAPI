@@ -1,124 +1,71 @@
 from fastapi import FastAPI, HTTPException, Depends 
-from schemas_api import Item, query_Item
-from fastapi.encoders import jsonable_encoder
-from enums_api import Category
+from sqlalchemy.orm import Session
+from typing import List
 
-app = FastAPI()
+from db_setup import Item, get_db
+from schemas_api import  ItemResponse, ItemCreate
 
-items = {
-    0: Item(name="Hammer", price=9, count=20, id=0, category=Category.TOOLS),
-    1: Item(name="Pliers", price=5.99, count=20, id=1, category=Category.TOOLS),
-    2: Item(name="Nails", price=1.99, count=100, id=2, category=Category.CONSUMABLES),
-}
-#GET ALL ITEMS
+app = FastAPI(title="Basic tools deposit API")
+
+#Sample table // SUSPENDED DUE TO RESTRUCTURE TO DB 
+# items = {
+#     0: Item(name="Hammer", price=9, count=20, id=0, category=Category.TOOLS),
+#     1: Item(name="Pliers", price=5.99, count=20, id=1, category=Category.TOOLS),
+#     2: Item(name="Nails", price=1.99, count=100, id=2, category=Category.CONSUMABLES),
+# }
+
+# ENDPOINTS
 @app.get("/")
-def index() -> dict[str, dict[int, Item]]:
-    return {"items": items}
+def root():
+    return("Terminal messsage: System Working")
 
-#GET ITEM BT ID
-@app.get("/items/{item_id}", response_model=Item)
-def query_by_id(item_id:int)-> Item:
-    if item_id not in items:
-        raise HTTPException(
-            status_code=404, detail=f"The item {item_id} does not exists."
-        )
-    return items[item_id]
-
-#GET ITEMS BY PARAMENTERS
-# Here we can query items like this /items?count=20
-Selection = dict[
-    str, str | int | float | Category | None
-]  # dictionary containing the user's query arguments
-
-@app.get("/items/", response_model=Item)
-def query_item_by_parameters(
-    name: str | None = None,
-    price: float | None = None,
-    count: int | None = None,
-    category: Category | None = None,
-) -> dict[str, Selection | list[Item]]:
-    def check_item(item: Item):
-        """Check if the item matches the query arguments from the outer scope."""
-        return all(
-            (
-                name is None or item.name == name,
-                price is None or item.price == price,
-                count is None or item.count != count,
-                category is None or item.category is category,
-            )
-        )
-
-    selection = [item for item in items.values() if check_item(item)]
-    return {
-        "query": {"name": name, "price": price, "count": count, "category": category},
-        "selection": selection,
-    }
-
-#GET ITEM BT PARAMS (pydantic model)
-@app.get("/query_items/", response_model=Item)
-async def read_items(params: query_Item = Depends()):
-    return {
-        "id": params.id,
-        "name": params.name,
-        "price": params.price,
-        "count": params.count,
-        "category": params.category,
-    }
+#GET AN ITEM
+@app.get("/item/{item_id}", response_model=ItemResponse)
+def get_item(item_id:int, db:Session=Depends(get_db)):
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Not Found")
+    return item
 
 #POST A NEW ITEM 
-@app.post("/")
-def add_item(item: Item) -> dict[str, Item]:
+@app.post("/item", response_model=ItemCreate)
+async def add_item(item:ItemCreate, db:Session = Depends(get_db)):
+    #Crear nuevo registro
+    if db.query(Item).filter(Item.name == item.name).first():
+        raise HTTPException(status_code = 404, detail = "Item already registered")
 
-    if item.id in items:
-        HTTPException(status_code=400, detail=f"Item with {item.id=} already exists.")
+    new_register = Item(**item.model_dump())
+    db.add(new_register)
+    db.commit()
+    db.refresh(new_register)
+    return new_register
 
-    items[item.id] = item
-    return {"added": item}
-
-# TO IMPLEMENT WITH PYDANTIC
-@app.put("/pydantic_update/{item_id}", response_model=Item)
-async def update_item(
-    item_id: int,
-    item: Item):
-    update_item_encoded = jsonable_encoder(item)
-    items[item_id]=update_item_encoded
-    return update_item_encoded
-
-
-#UPDATE A NEW ITEM //Suspended for pydantic update
-@app.put("/update/{item_id}")
-def update(
-    item_id: int,
-    name: str | None = None,
-    price: float | None = None,
-    count: int | None = None,
-) -> dict[str, Item]:
-
-    if item_id not in items:
-        HTTPException(status_code=404, detail=f"Item with {item_id=} does not exist.")
-    if all(info is None for info in (name, price, count)):
-        raise HTTPException(
-            status_code=400, detail="No parameters provided for update."
-        )
-
-    item = items[item_id]
-    if name is not None:
-        item.name = name
-    if price is not None:
-        item.price = price
-    if count is not None:
-        item.count = count
-
-    return {"updated": item}
+# UPDATE AN ITEM
+@app.put("/item/{item_id}", response_model=ItemResponse)
+def update_item(item_id: int, item: ItemCreate, db: Session = Depends(get_db)):
+    db_item = db.query(Item).filter(Item.id == item_id).first()
+    if not db_item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    for field, value in item.dict().items():
+        setattr(db_item, field, value)
+    
+    db.commit()
+    db.refresh(db_item)
+    return db_item
 
 #REMOVE AN EXISTING ITEM
-@app.delete("/delete/{item_id}")
-def delete_item(item_id: int) -> dict[str, Item]:
+@app.delete("/item/{item_id}")
+def delete_item(item_id:int, db:Session =Depends(get_db)):
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    db.delete(item)
+    db.commit()
+    return{"message":"Item Removed"}
 
-    if item_id not in items:
-        raise HTTPException(
-            status_code=404, detail=f"Item with {item_id=} does not exist."
-        )
-
-    item = items.pop(item_id)
-    return {"deleted": item}
+#GET ALL ITEMS
+@app.get("/items/", response_model=List[ItemResponse])
+def get_all_items(db:Session = Depends(get_db)):
+    return db.query(Item).all()
